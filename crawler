@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Dec 22 15:37:04 2021
+
+@author: 00587413
+"""
+
+
+#import bs4
+from selenium import webdriver
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+#from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.keys import Keys
+#from selenium.webdriver.common.action_chains import ActionChains
+from time import sleep
+import pandas as pd
+from datetime import datetime
+
+
+desired_capabilities = DesiredCapabilities.CHROME
+desired_capabilities["pageLoadStrategy"] = "none"
+driver = webdriver.Chrome(desired_capabilities=desired_capabilities) 
+driver.get("https://www.wsj.com/news/markets?mod=nav_top_section")
+#url="https://www.wsj.com/news/markets?mod=nav_top_section"
+
+driver.implicitly_wait(10) # seconds
+sleep(5)
+SignInElement=driver.find_element_by_xpath("//*[contains(text(),'Sign In')]")
+SignInElement.click()
+UserNameElement=driver.find_element_by_class_name("username")
+UserNameElement.send_keys('YOURUSERNAME')
+PwdElement=driver.find_element_by_xpath("//button//*[contains(.,'Continue With Password')]")
+PwdElement.click()
+sleep(3)
+driver.switch_to.active_element.send_keys('YOUR_PWD',Keys.ENTER)
+
+LogInElement=driver.find_element_by_xpath("//button//*[contains(.,'Continue to WSJ')]")
+LogInElement.click()
+
+
+BondElement=driver.find_element_by_xpath("//span[contains(.,'Bonds')]")
+BondElement.click()
+
+#HeaderElement=driver.find_element_by_xpath("//*[@id='latest-stories']//article[1]//div[2]//div[2]//h2//a//span").text
+#get all the header info in bond news page 
+HeaderElements=driver.find_elements_by_xpath("//span[contains(@class,'WSJTheme--headlineText')]")
+HeaderList=[]
+for element in HeaderElements:
+     HeaderList.append(element.text)
+     sleep(0.1)
+
+#get all the href info in bond news page      
+HrefElements=driver.find_elements_by_xpath("//span[contains(@class,'WSJTheme--headlineText')]//..//..//a")
+HrefList=[]
+for element in HrefElements:
+     HrefList.append(element.get_attribute('href'))
+     sleep(0.1)
+
+#get all the summary in bond news page  
+SummaryElements=driver.find_elements_by_xpath("//p[contains(@class,'WSJTheme--summary')]//span")
+SummaryList=[]
+for element in SummaryElements:
+     SummaryList.append(element.text)
+     sleep(0.1)     
+     
+#get all the time in bond news page 
+TimeElements=driver.find_elements_by_xpath("//div[contains(@class,'WSJTheme--timestamp')]//p")
+TimeList=[]
+for element in TimeElements:
+    time=element.text
+    time=datetime.strptime(time, "%B %d, %Y").strftime('%Y/%m/%d')
+    TimeList.append(time)
+    sleep(0.1)   
+     
+try: 
+    df_news=pd.read_excel("D:\Excel暫存\dummy.xlsx",usecols=["Date","Title","URL","Content"])
+except:
+    df_news=pd.DataFrame(columns=["Date","Title","URL"])
+
+NewsList=[]
+for URL in HrefList:
+    News=""
+    driver.get(URL)  
+    sleep(1)
+    NewsElement=driver.find_elements_by_xpath("//div[@class='article-content  ' or @class= 'paywall']//P")
+    for element in NewsElement:
+        News+=element.text
+        sleep(0.1)
+    NewsList.append(News)
+    
+dict_single={"Date":TimeList,
+             "title":HeaderList,
+             "URL":HrefList,
+             'Content':NewsList
+             }
+df_single=pd.DataFrame(dict_single)
+
+df_single.to_excel("D:\Excel暫存\wsj.xlsx") 
